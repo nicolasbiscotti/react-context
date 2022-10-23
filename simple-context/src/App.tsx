@@ -51,7 +51,10 @@ function useStoreData(label: "first" | "last") {
   const handleChange = useCallback(() => setValue(state.current[label]), []);
 
   useEffect(() => {
-    onStateChange(handleChange);
+    const unsuscribe = onStateChange(handleChange);
+    return () => {
+      unsuscribe();
+    };
   }, []);
 
   return { value, setState };
