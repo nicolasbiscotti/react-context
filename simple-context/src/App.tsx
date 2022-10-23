@@ -1,24 +1,41 @@
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import "./App.css";
-
-function useStore() {
-  return useState({ first: "", last: "" });
-}
 
 type useStoreReturnType = ReturnType<typeof useStore>;
 
 const StoreContext = createContext<useStoreReturnType | null>(null);
 
+function useStoreData(label: "first" | "last") {
+  const { state, onStateChange, setState } = useContext(StoreContext)!;
+  const [value, setValue] = useState(state.current[label]);
+
+  const handleChange = useCallback(() => setValue(state.current[label]), []);
+
+  useEffect(() => {
+    onStateChange(handleChange);
+  }, []);
+
+  return { value, state, setState };
+}
+
 function TextInput({ label }: { label: "first" | "last" }) {
-  const [store, setStore] = useContext(StoreContext)!;
+  const { value, state, setState } = useStoreData(label);
   return (
     <div>
       <label>
         {label}:{" "}
         <input
           type="text"
-          value={store[label]}
-          onChange={(e) => setStore({ ...store, [label]: e.target.value })}
+          value={value}
+          onChange={(e) =>
+            setState({ ...state.current, [label]: e.target.value })
+          }
         />
       </label>
     </div>
@@ -26,11 +43,12 @@ function TextInput({ label }: { label: "first" | "last" }) {
 }
 
 function Display({ label }: { label: "first" | "last" }) {
-  const [store] = useContext(StoreContext)!;
+  const { value } = useStoreData(label);
+
   return (
     <div>
       {/* in heare i want to use ---> getState()[label] */}
-      {label}: {store[label]}
+      {label}: {value}
     </div>
   );
 }
@@ -69,6 +87,24 @@ function ContentContainer() {
       <DisplayContainer />
     </div>
   );
+}
+
+function useStore() {
+  const state = { current: { first: "", last: "" } };
+
+  const listeners = new Set<() => void>();
+
+  function onStateChange(listener: () => void) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+
+  function setState(nextState: { first: string; last: string }) {
+    state.current = nextState;
+    listeners.forEach((listener) => listener());
+  }
+
+  return { state, onStateChange, setState };
 }
 
 function App() {
