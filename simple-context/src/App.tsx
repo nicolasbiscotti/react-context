@@ -1,5 +1,6 @@
 import {
   createContext,
+  ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -9,7 +10,39 @@ import "./App.css";
 
 type useStoreReturnType = ReturnType<typeof useStore>;
 
+type State = { first: string; last: string };
+
 const StoreContext = createContext<useStoreReturnType | null>(null);
+
+function useStore() {
+  const state = { current: { first: "", last: "" } };
+
+  const listeners = new Set<() => void>();
+
+  function onStateChange(listener: () => void) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+
+  function setState(nextState: Partial<State>) {
+    state.current = { ...state.current, ...nextState };
+    listeners.forEach((listener) => listener());
+  }
+
+  return { state, onStateChange, setState };
+}
+
+function Provider({
+  value,
+  children,
+}: {
+  value: useStoreReturnType;
+  children: ReactNode;
+}) {
+  return (
+    <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  );
+}
 
 function useStoreData(label: "first" | "last") {
   const { state, onStateChange, setState } = useContext(StoreContext)!;
@@ -21,11 +54,11 @@ function useStoreData(label: "first" | "last") {
     onStateChange(handleChange);
   }, []);
 
-  return { value, state, setState };
+  return { value, setState };
 }
 
 function TextInput({ label }: { label: "first" | "last" }) {
-  const { value, state, setState } = useStoreData(label);
+  const { value, setState } = useStoreData(label);
   return (
     <div>
       <label>
@@ -33,9 +66,7 @@ function TextInput({ label }: { label: "first" | "last" }) {
         <input
           type="text"
           value={value}
-          onChange={(e) =>
-            setState({ ...state.current, [label]: e.target.value })
-          }
+          onChange={(e) => setState({ [label]: e.target.value })}
         />
       </label>
     </div>
@@ -89,34 +120,16 @@ function ContentContainer() {
   );
 }
 
-function useStore() {
-  const state = { current: { first: "", last: "" } };
-
-  const listeners = new Set<() => void>();
-
-  function onStateChange(listener: () => void) {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }
-
-  function setState(nextState: { first: string; last: string }) {
-    state.current = nextState;
-    listeners.forEach((listener) => listener());
-  }
-
-  return { state, onStateChange, setState };
-}
-
 function App() {
   const store = useStore();
 
   return (
-    <StoreContext.Provider value={store}>
+    <Provider value={store}>
       <div>
         <h2>App</h2>
         <ContentContainer />
       </div>
-    </StoreContext.Provider>
+    </Provider>
   );
 }
 export default App;
